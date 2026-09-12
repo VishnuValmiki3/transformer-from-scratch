@@ -81,6 +81,15 @@ def test_special_token_encodes_as_single_id(toy_corpus_path):
     assert ids.count(special_id) == 1
 
 
+def test_decode_renders_unknown_ids_instead_of_raising(toy_corpus_path):
+    """A model with a padded vocab can sample ids the tokenizer never learned."""
+    vocab, merges = train_bpe(toy_corpus_path, vocab_size=270)
+    tok = Tokenizer(vocab, merges)
+    unknown_id = max(tok.vocab) + 50
+    assert tok.decode([unknown_id]) == "�"
+    assert tok.decode(tok.encode("low") + [unknown_id]).startswith("low")
+
+
 def test_encode_iterable_matches_encode(toy_corpus_path):
     # Splitting exactly on a newline is a safe pretoken boundary (the GPT-2 regex always
     # closes out a whitespace pretoken at "\n"); splitting mid-word or mid-space-run is not,

@@ -14,6 +14,7 @@ import regex as re
 GPT2_PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
 
 Pair = tuple[bytes, bytes]
+REPLACEMENT_CHAR = "�".encode("utf-8")
 
 
 def _iter_pretokens(text: str):
@@ -203,5 +204,8 @@ class Tokenizer:
             yield from self.encode(chunk)
 
     def decode(self, ids: list[int]) -> str:
-        raw = b"".join(self.vocab[i] for i in ids)
+        # A model's vocab is often padded past the tokenizer's (for alignment, or because
+        # training ran out of merges), so sampling can legitimately produce unknown ids.
+        # Render them like any other undecodable byte rather than raising.
+        raw = b"".join(self.vocab.get(i, REPLACEMENT_CHAR) for i in ids)
         return raw.decode("utf-8", errors="replace")

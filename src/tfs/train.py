@@ -106,7 +106,14 @@ def estimate_loss(
     return total / batches
 
 
-def train(cfg: TrainConfig, resume: str | None = None) -> str:
+def train(
+    cfg: TrainConfig,
+    resume: str | None = None,
+    model: TransformerLM | None = None,
+    optimizer: torch.optim.Optimizer | None = None,
+) -> str:
+    """Run the training loop. `model`/`optimizer` can be supplied by callers such as
+    LoRA fine-tuning, which need a pre-loaded and partially frozen model."""
     device = cfg.resolved_device()
     torch.manual_seed(cfg.seed)
     rng = np.random.default_rng(cfg.seed)
@@ -115,13 +122,23 @@ def train(cfg: TrainConfig, resume: str | None = None) -> str:
     train_data = load_tokens(cfg.train_tokens)
     val_data = load_tokens(cfg.val_tokens) if cfg.val_tokens else None
 
-    model = build_model(cfg, device)
-    optimizer = AdamW(
-        model.parameters(),
-        lr=cfg.lr_max,
-        betas=cfg.betas,
-        weight_decay=cfg.weight_decay,
-    )
+    # Catch a config/tokenizer mismatch here rather than as an IndexError mid-run.
+    highest_id = int(train_data.max())
+    if highest_id >= cfg.vocab_size:
+        raise ValueError(
+            f"{cfg.train_tokens} contains token id {highest_id}, but vocab_size is "
+            f"{cfg.vocab_size}; the tokenizer and config disagree"
+        )
+
+    if model is None:
+        model = build_model(cfg, device)
+    if optimizer is None:
+        optimizer = AdamW(
+            model.parameters(),
+            lr=cfg.lr_max,
+            betas=cfg.betas,
+            weight_decay=cfg.weight_decay,
+        )
 
     start_step = load_checkpoint(resume, model, optimizer, device) if resume else 0
 

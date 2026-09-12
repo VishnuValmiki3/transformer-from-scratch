@@ -41,7 +41,7 @@ def download(url: str, dest: str) -> str:
     return dest
 
 
-def write_bpe_sample(source: str, dest: str, max_chars: int) -> str:
+def write_prefix(source: str, dest: str, max_chars: int) -> str:
     """Copy a prefix of the corpus, trimmed to the last complete document."""
     with open(source, "r", encoding="utf-8") as f:
         text = f.read(max_chars)
@@ -133,6 +133,12 @@ def main() -> None:
         default=50_000_000,
         help="how much of the training text to learn merges from",
     )
+    parser.add_argument(
+        "--max-train-chars",
+        type=int,
+        help="encode only this much of the training text; a 10k-step run consumes far "
+        "fewer tokens than the full corpus holds, so this saves most of the prep time",
+    )
     parser.add_argument("--workers", type=int, default=1)
     args = parser.parse_args()
 
@@ -147,14 +153,27 @@ def main() -> None:
         args.valid_url, os.path.join(args.data_dir, "valid.txt")
     )
 
-    sample = write_bpe_sample(
+    sample = write_prefix(
         train_text, os.path.join(args.data_dir, "bpe_sample.txt"), args.bpe_sample_chars
     )
+    if args.max_train_chars:
+        train_text = write_prefix(
+            train_text, os.path.join(args.data_dir, "train_subset.txt"), args.max_train_chars
+        )
+        print(f"encoding a {os.path.getsize(train_text):,}-byte subset of the training text")
 
     print(f"training BPE (vocab_size={args.vocab_size}) on {os.path.getsize(sample):,} bytes")
     start = time.perf_counter()
     vocab, merges = train_bpe(sample, args.vocab_size, special_tokens=[END_OF_TEXT])
     print(f"  learned {len(merges):,} merges in {time.perf_counter() - start:.1f}s")
+    print(f"  actual vocab size: {len(vocab):,}")
+    if len(vocab) < args.vocab_size:
+        print(
+            f"  WARNING: the sample ran out of repeated pairs before reaching "
+            f"{args.vocab_size:,}. Set vocab_size: {len(vocab)} in your training config, "
+            f"or the model will have {args.vocab_size - len(vocab):,} output slots that "
+            f"decode to nothing."
+        )
 
     tokenizer = Tokenizer(vocab, merges, special_tokens=[END_OF_TEXT])
     tokenizer.save(

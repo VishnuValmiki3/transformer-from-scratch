@@ -1,0 +1,28 @@
+# LoRA style transfer: adapt the TinyStories-pretrained model to Shakespeare.
+base_checkpoint: checkpoints/tinystories/final.pt
+train_tokens: data/style/train.bin
+val_tokens: data/style/valid.bin
+
+rank: 8
+alpha: 16.0
+target_modules: [q_proj, v_proj]   # the pairing Hu et al. found most effective per parameter
+
+lr_max: 1.0e-3      # higher than pretraining: only the adapters move, and they start at zero
+lr_min: 1.0e-4
+warmup_steps: 50
+cosine_steps: 1000
+weight_decay: 0.0   # regularizing a rank-8 update mostly just fights the fine-tune
+betas: [0.9, 0.95]
+grad_clip: 1.0
+
+batch_size: 16
+max_steps: 1000
+eval_interval: 100
+eval_batches: 10
+checkpoint_interval: 0
+log_interval: 10
+
+out_dir: checkpoints/lora_style
+device: auto
+seed: 0
+amp: true

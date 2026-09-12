@@ -131,6 +131,13 @@ def test_estimate_loss_does_not_leave_model_in_eval_mode(corpus, tmp_path):
     assert model.training
 
 
+def test_rejects_token_ids_beyond_the_configured_vocab(corpus, tmp_path):
+    """A tokenizer/config mismatch must fail loudly at startup, not mid-run."""
+    cfg = _config(corpus, str(tmp_path / "run"), vocab_size=PERIOD - 1)
+    with pytest.raises(ValueError, match="disagree"):
+        train(cfg)
+
+
 def test_config_rejects_unknown_yaml_keys(tmp_path):
     path = tmp_path / "bad.yaml"
     path.write_text("train_tokens: x.bin\nnum_layerz: 4\n", encoding="utf-8")
