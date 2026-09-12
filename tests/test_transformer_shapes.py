@@ -1,7 +1,9 @@
+import math
+
 import pytest
 import torch
 
-from tfs.nn import TransformerBlock, TransformerLM
+from tfs.nn import TransformerBlock, TransformerLM, cross_entropy
 
 MODEL_KWARGS = dict(
     vocab_size=97,
@@ -72,6 +74,32 @@ def test_tying_saves_exactly_one_embedding_matrix(model):
     embedding_size = model.token_embedding.weight.numel()
     assert untied.num_parameters() - model.num_parameters() == embedding_size
     assert len(list(model.parameters())) == len(list(untied.parameters())) - 1
+
+
+@pytest.mark.parametrize("tie_embeddings", [True, False])
+def test_initial_loss_is_near_uniform_prediction(tie_embeddings):
+    """A fresh model should predict roughly uniformly, i.e. loss ~ ln(vocab_size).
+
+    Regression test for an init/tying interaction: with a std=1 embedding, tying made the
+    output logits scale with sqrt(d_model), starting training at loss ~342 instead of ~9.2.
+    """
+    vocab_size = 10_000
+    torch.manual_seed(0)
+    model = TransformerLM(
+        vocab_size=vocab_size,
+        d_model=512,
+        num_heads=8,
+        d_ff=1344,
+        num_layers=2,
+        max_seq_len=64,
+        tie_embeddings=tie_embeddings,
+    )
+    tokens = torch.randint(0, vocab_size, (2, 32))
+    targets = torch.randint(0, vocab_size, (2, 32))
+
+    with torch.no_grad():
+        loss = cross_entropy(model(tokens), targets).item()
+    assert abs(loss - math.log(vocab_size)) < 0.5, f"initial loss {loss:.2f} is far from uniform"
 
 
 def test_gradients_reach_every_parameter(model):
