@@ -5,9 +5,10 @@ __pycache__/
 build/
 dist/
 
-# data & artifacts (large, regenerated via scripts / Kaggle notebooks)
-data/
-checkpoints/
+# data & artifacts (large, regenerated via scripts / Kaggle notebooks).
+# Leading slash anchors these to the repo root so src/tfs/data/ stays tracked.
+/data/
+/checkpoints/
 *.bin
 *.pt
 wandb/

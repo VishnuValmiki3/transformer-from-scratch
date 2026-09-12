@@ -145,6 +145,9 @@ class Tokenizer:
                 self.byte_to_id[b] = new_id
 
         self.merge_ranks: dict[Pair, int] = {pair: rank for rank, pair in enumerate(merges)}
+        # Pretokens repeat heavily in natural text, so memoizing the merge search per
+        # distinct pretoken is what makes encoding a multi-GB corpus tractable in Python.
+        self._cache: dict[bytes, list[int]] = {}
 
     @classmethod
     def from_files(
@@ -175,6 +178,13 @@ class Tokenizer:
             symbols = symbols[:i] + [symbols[i] + symbols[i + 1]] + symbols[i + 2 :]
         return symbols
 
+    def _encode_pretoken_ids(self, raw: bytes) -> list[int]:
+        cached = self._cache.get(raw)
+        if cached is None:
+            cached = [self.byte_to_id[s] for s in self._encode_pretoken(raw)]
+            self._cache[raw] = cached
+        return cached
+
     def encode(self, text: str) -> list[int]:
         ids: list[int] = []
         special_set = set(self.special_tokens)
@@ -185,8 +195,7 @@ class Tokenizer:
                 ids.append(self.byte_to_id[chunk.encode("utf-8")])
                 continue
             for pretoken in _iter_pretokens(chunk):
-                symbols = self._encode_pretoken(pretoken.encode("utf-8"))
-                ids.extend(self.byte_to_id[s] for s in symbols)
+                ids.extend(self._encode_pretoken_ids(pretoken.encode("utf-8")))
         return ids
 
     def encode_iterable(self, iterable):

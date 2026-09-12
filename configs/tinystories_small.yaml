@@ -1,0 +1,32 @@
+# ~17M-parameter model, sized to pretrain on a single Kaggle T4 in roughly an hour.
+train_tokens: data/tinystories/train.bin
+val_tokens: data/tinystories/valid.bin
+vocab_size: 10000
+
+d_model: 512
+num_heads: 8
+d_ff: 1344          # ~8/3 * d_model, rounded to a multiple of 64 for SwiGLU's gated pair
+num_layers: 4
+context_length: 256
+rope_theta: 10000.0
+tie_embeddings: true
+
+lr_max: 6.0e-4
+lr_min: 6.0e-5
+warmup_steps: 500
+cosine_steps: 10000
+weight_decay: 0.1
+betas: [0.9, 0.95]
+grad_clip: 1.0
+
+batch_size: 32      # 8,192 tokens per step
+max_steps: 10000    # ~82M tokens, well under one epoch of TinyStories
+eval_interval: 250
+eval_batches: 20
+checkpoint_interval: 2000
+log_interval: 10
+
+out_dir: checkpoints/tinystories
+device: auto
+seed: 0
+amp: true
