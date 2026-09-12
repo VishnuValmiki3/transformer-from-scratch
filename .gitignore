@@ -17,3 +17,6 @@ wandb/
 venv/
 .vscode/
 .idea/
+
+# downloaded run artifacts
+/artifacts.zip
